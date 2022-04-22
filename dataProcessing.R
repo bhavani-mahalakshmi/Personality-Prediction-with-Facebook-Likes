@@ -76,3 +76,34 @@ for (i in 1:5) {
   temp <- head(f, n = 10)
   bottom[[i]]<-colnames(ulMatrix)[temp]  
 }
+
+# calculating correlations
+correlation<-round(cor(rotUmatrix, usersTable[,-1], use="p"),2)
+
+# Using ggplot2 to redesigning it to make it uncomplicated
+Melt<-melt(correlation)
+colnames(Melt)<-c("SVD", "Trait", "r")
+
+# Generating the heatmap for SVD dimensions and understanding personality traits 
+qplot(p=SVD, q=Trait, data=q, fill=r, geom="tile") +
+  scale_fill_gradient2(limits=range(p), breaks=c(min(p), 0, max(p)))+
+  theme(axis.text=element_text(size=12), 
+        axis.title=element_text(size=14,face="bold"),
+        panel.background = element_rect(fill='white', colour='white'))+
+  labs(p=expression('SVD'[rot]), q=NULL)
+
+# Performing k-fold cross validations to divide users in 10 groups
+splits <- sample(1:10, size = nrow(usersTable), replace = T)
+
+#Creating a subset of users from group 1 and allocating them in trail set
+trial <- splits == 1
+library(irlba)
+
+# Extracting SVD dimensions from the trial subset
+svdM <- irlba(ufp[!trial, ], nv = 50)
+
+# Rotating Like SVD scores for trial subset
+rotVmatrix <- unclass(varimax(svdM$v)$loadings)
+
+# Rotating user SVD scores for the total set
+rotUmatrix <- as.data.frame(as.matrix(ufp %*% rotVmatrix))
