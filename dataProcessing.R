@@ -2,16 +2,17 @@
 install.packages("Matrix")
 install.packages("irlba")
 install.packages("corrplot")
-install.packages("ggplot2", "reshape2")
+install.packages("ggplot2")
+install.packages("reshape2")
 install.packages("reshape2")
 
 #matrix library required for construction of sparse matrix
 require(Matrix)
 
 #load data set files into table/dataframe
-usersTable <- read.csv(file = "C:/Users/sangr/Documents/573Project/dataset/users.csv")
-likesTable <- read.csv(file = "C:/Users/sangr/Documents/573Project/dataset/likes.csv")
-ulTable <- read.csv(file = "C:/Users/sangr/Documents/573Project/dataset/users-likes.csv")
+usersTable <- read.csv(file = "users.csv")
+likesTable <- read.csv(file = "likes.csv")
+ulTable <- read.csv(file = "users-likes.csv")
 
 #dropping political column from users table due to many null data points and renaming column
 usersTable$political <- NULL
@@ -107,3 +108,124 @@ rotVmatrix <- unclass(varimax(svdM$v)$loadings)
 
 # Rotating user SVD scores for the total set
 rotUmatrix <- as.data.frame(as.matrix(ufp %*% rotVmatrix))
+
+#################################################### Start Prediction ####################################################
+# Start predictions
+set.seed(seed=68)
+number_of_folds<-10                         # define the number of folds needed
+attributes<-colnames(users)[5:ncol(users)]  # choose prediction attributes from the data
+k_values<-c(2:10,15,20,30,40,50)
+
+# Preset an empty list to hold the results
+predicted_values <- list()
+
+folds <- sample(1:number_of_folds, size = nrow(users), replace = T)
+
+results<-list()
+g_data <- list()
+
+# Checking the prediction values for different values of k and folds
+for (k in k_values){
+  for (fold in 1:number_of_folds){ 
+    print(paste("Cross-validated predictions for the particular fold number:", fold))
+    test <- folds == fold
+    
+    #Calculate the SVD dimensions
+    Msvd <- irlba(ulMatrix[!test, ], nv = k)
+    v_rot <- unclass(varimax(Msvd$v[, 1:k])$loadings)
+    predictors <- as.data.frame(as.matrix(ulMatrix %*% v_rot))
+    
+    for (attribute in attributes){
+      results[[attribute]]<-rep(NA, n = nrow(users))
+      model_fit<-glm(users[,attribute]~., data = predictors, subset = !test)
+      results[[attribute]][test] <- predict(model_fit, predictors[test, ])
+      print(paste("k-val",k," Variable", attribute, "done."))
+    }
+  }
+  
+  # Function to calculate the accuracies from the predicted values
+  compute_accuracy <- function(ground_truth, predicted){
+    return(cor(ground_truth, predicted,use = "pairwise"))
+  }
+  
+  accuracies<-list()
+  for (attribute in attributes){
+    accuracies[[attribute]]<-compute_accuracy(users[,attribute], results[[attribute]])
+    if (attribute == 'ope'){
+      predicted_values[[as.character(k)]] <- accuracies[[attribute]]
+    }
+  }
+  print(accuracies)
+  
+}
+
+#Plot the graph for different k and the predicted outcome values
+library(ggplot2)
+library(reshape2)
+data<-data.frame(k=k_values, r=as.numeric(predicted_values))
+
+ggplot(data=data, aes(x=k, y=r, group=1)) +
+  theme_light() +
+  stat_smooth(colour="orange", linetype="solid", size=1,se=F) +
+  geom_point(colour="blue", size=2, shape=21, fill="white") +
+  scale_y_continuous(breaks = seq(0, .5, by = 0.05))
+
+
+############################################################### Calculate Leadership Abilities ####################################
+#Manually assign a fold
+test <- folds == 1
+library(irlba)
+
+# Get the best k value from the plot
+svdUL <- irlba(ulMatrix[!test, ], nv = 50)
+
+# Rotate Like SVD scores (V)
+v_rot <- unclass(varimax(svdUL$v)$loadings)
+
+# Rotate user SVD scores *for the entire sample*
+u_rot <- as.data.frame(as.matrix(ulMatrix %*% v_rot))
+
+# Build linear regression model for 5 personality traits
+fit_ope <- glm(users$ope~., data = u_rot, subset = !test)
+fit_con <- glm(users$con~., data = u_rot, subset = !test)
+fit_ext <- glm(users$ext~., data = u_rot, subset = !test)
+fit_agr <- glm(users$agr~., data = u_rot, subset = !test)
+fit_neu <- glm(users$neu~., data = u_rot, subset = !test)
+
+# Predict the personality traits
+pred_ope <- predict(fit_ope, u_rot[test, ])
+pred_con <- predict(fit_con, u_rot[test, ])
+pred_ext <- predict(fit_ext, u_rot[test, ])
+pred_agr <- predict(fit_agr, u_rot[test, ])
+pred_neu <- predict(fit_neu, u_rot[test, ])
+
+
+matched_users <- users[match(rownames(as.matrix(pred_o)),users$userid), ]
+matched_users
+
+#Combine the predicted values
+data_new <- cbind(pred_ope, pred_con, pred_ext, pred_agr, pred_neu) 
+#Define leadership traits
+leader <- c(0.40, -0.104, 0.07, -0.019, 0.035)
+
+res = list()
+
+#Iterate over users to predict the leadership traits
+install.packages("lsa")
+library(lsa)
+
+for (row in 1:nrow(data_new)) {
+  traits <- list()
+  for(col in 1:ncol(data_new)) {
+    traits <- c(traits, data_new[row, col])
+  }
+  
+  # Using cosine distance to calcualte leadership qualities
+  traits <- as.numeric(traits)
+  res[[matched_users[row,1]]] <- cosine(leader, traits)
+  print("End")
+}
+
+res
+
+############################################### Calculating the emotions #################################################
