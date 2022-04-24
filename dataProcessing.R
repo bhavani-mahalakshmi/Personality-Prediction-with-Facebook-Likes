@@ -236,7 +236,6 @@ library(data.table)
 like_sentiments = data.frame(matrix(ncol=11,nrow=0, dimnames=list(NULL, c("likeid", "anger", "anticipation", "disgust", "fear", "joy", "sadness", "surprise", "trust", "negative", "positive"))))
 
 for (row in 1:nrow(likesTable)){
-# for (row in 1:10){
   name <- likesTable[row, "name"]
   words <- unique(strsplit(name, split = " "))
   char_v <- unlist(words)
@@ -249,14 +248,13 @@ for (row in 1:nrow(likesTable)){
   like_sentiments <- rbind(like_sentiments, temp)
 }
 
-print(like_sentiments)
+# print(like_sentiments)
 
 
 user_sentiments = data.frame(matrix(ncol=11,nrow=0, dimnames=list(NULL, c("userid", "anger", "anticipation", "disgust", "fear", "joy", "sadness", "surprise", "trust", "negative", "positive"))))
 trimmed_ul_table <- ulTable[ulTable$userid %in% usersTable$userid,]
 
 for (row in 1:nrow(trimmed_ul_table)){
-# for (row in 1:2000){
 
   likeid = trimmed_ul_table[row, "likeid"]
   userid = trimmed_ul_table[row, "userid"]
@@ -279,12 +277,11 @@ for (row in 1:nrow(trimmed_ul_table)){
     }
   }
 }
-print(user_sentiments)
+# print(user_sentiments)
 
 
 user_emotions = data.frame(matrix(ncol=2,nrow=0, dimnames=list(NULL, c("userid", "sentiments"))))
 for (row in 1:nrow(user_sentiments)){
-# for (row in 1:2){
   user_sentiment = user_sentiments[row,]
   max <- do.call(`pmax`, user_sentiment[,-1])
   sentiments <- (apply(user_sentiment, 1, function(x) colnames(user_sentiment)[which(x == max)]))
