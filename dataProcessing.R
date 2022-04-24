@@ -5,6 +5,7 @@ install.packages("corrplot")
 install.packages("ggplot2")
 install.packages("reshape2")
 install.packages("reshape2")
+install.packages("syuzhet", repos = "http://cran.us.r-project.org")
 
 #matrix library required for construction of sparse matrix
 require(Matrix)
@@ -229,3 +230,64 @@ for (row in 1:nrow(data_new)) {
 res
 
 ############################################### Calculating the emotions #################################################
+library(syuzhet)
+library(data.table)
+
+like_sentiments = data.frame(matrix(ncol=11,nrow=0, dimnames=list(NULL, c("likeid", "anger", "anticipation", "disgust", "fear", "joy", "sadness", "surprise", "trust", "negative", "positive"))))
+
+for (row in 1:nrow(likesTable)){
+# for (row in 1:10){
+  name <- likesTable[row, "name"]
+  words <- unique(strsplit(name, split = " "))
+  char_v <- unlist(words)
+  nrc <- get_nrc_sentiment(char_v, cl = NULL, language = "english", lowercase = TRUE)
+  sentiments <- colSums(nrc)
+  x <- data.frame(sentiments)
+  t <- transpose(x)
+  colnames(t) <- rownames(x)
+  temp <- cbind(likeid=likesTable[row, "likeid"], t)
+  like_sentiments <- rbind(like_sentiments, temp)
+}
+
+print(like_sentiments)
+
+
+user_sentiments = data.frame(matrix(ncol=11,nrow=0, dimnames=list(NULL, c("userid", "anger", "anticipation", "disgust", "fear", "joy", "sadness", "surprise", "trust", "negative", "positive"))))
+trimmed_ul_table <- ulTable[ulTable$userid %in% usersTable$userid,]
+
+for (row in 1:nrow(trimmed_ul_table)){
+# for (row in 1:2000){
+
+  likeid = trimmed_ul_table[row, "likeid"]
+  userid = trimmed_ul_table[row, "userid"]
+  
+  like_sentiment = like_sentiments[like_sentiments$likeid == likeid,]
+  if (dim(like_sentiment)[1] != 0){
+    user_sentiment = user_sentiments[user_sentiments$userid == userid,]
+
+    temp_list = list(userid=userid)
+    temp <- append(temp_list, like_sentiment[,-1])
+
+    if (dim(user_sentiment)[1] == 0) {
+      user_sentiments <- rbind(user_sentiments, temp)
+    }
+    else {
+      for(col in colnames(like_sentiment[,-1])){
+          user_sentiment[[col]] <- like_sentiment[[col]] + user_sentiment[[col]]
+        }
+      user_sentiments[user_sentiments$userid == userid,] = user_sentiment
+    }
+  }
+}
+print(user_sentiments)
+
+
+user_emotions = data.frame(matrix(ncol=2,nrow=0, dimnames=list(NULL, c("userid", "sentiments"))))
+for (row in 1:nrow(user_sentiments)){
+# for (row in 1:2){
+  user_sentiment = user_sentiments[row,]
+  max <- do.call(`pmax`, user_sentiment[,-1])
+  sentiments <- (apply(user_sentiment, 1, function(x) colnames(user_sentiment)[which(x == max)]))
+  user_emotions[nrow(user_emotions) + 1,] = c(user_sentiments[row, "userid"], paste(unlist(sentiments), collapse=' '))
+}
+print(user_emotions)
