@@ -84,15 +84,15 @@ correlation<-round(cor(rotUmatrix, usersTable[,-1], use="p"),2)
 
 # Using ggplot2 to redesigning it to make it uncomplicated
 Melt<-melt(correlation)
-colnames(Melt)<-c("SVD", "Trait", "r")
+colnames(Melt)<-c("SVDM", "Attribute", "r")
 
 # Generating the heatmap for SVD dimensions and understanding personality traits 
-qplot(p=SVD, q=Trait, data=q, fill=r, geom="tile") +
-  scale_fill_gradient2(limits=range(p), breaks=c(min(p), 0, max(p)))+
+qplot(x=SVDM, y=Attribute, data=Melt, fill=r, geom="tile") +
+  scale_fill_gradient2(limits=range(x), breaks=c(min(x), 0, max(x)))+
   theme(axis.text=element_text(size=12), 
         axis.title=element_text(size=14,face="bold"),
         panel.background = element_rect(fill='white', colour='white'))+
-  labs(p=expression('SVD'[rot]), q=NULL)
+  labs(x=expression('SVD'[rot]), y=NULL)
 
 # Performing k-fold cross validations to divide users in 10 groups
 splits <- sample(1:10, size = nrow(usersTable), replace = T)
@@ -255,24 +255,24 @@ user_sentiments = data.frame(matrix(ncol=11,nrow=0, dimnames=list(NULL, c("useri
 trimmed_ul_table <- ulTable[ulTable$userid %in% usersTable$userid,]
 
 for (row in 1:nrow(trimmed_ul_table)){
-
+  
   likeid = trimmed_ul_table[row, "likeid"]
   userid = trimmed_ul_table[row, "userid"]
   
   like_sentiment = like_sentiments[like_sentiments$likeid == likeid,]
   if (dim(like_sentiment)[1] != 0){
     user_sentiment = user_sentiments[user_sentiments$userid == userid,]
-
+    
     temp_list = list(userid=userid)
     temp <- append(temp_list, like_sentiment[,-1])
-
+    
     if (dim(user_sentiment)[1] == 0) {
       user_sentiments <- rbind(user_sentiments, temp)
     }
     else {
       for(col in colnames(like_sentiment[,-1])){
-          user_sentiment[[col]] <- like_sentiment[[col]] + user_sentiment[[col]]
-        }
+        user_sentiment[[col]] <- like_sentiment[[col]] + user_sentiment[[col]]
+      }
       user_sentiments[user_sentiments$userid == userid,] = user_sentiment
     }
   }
