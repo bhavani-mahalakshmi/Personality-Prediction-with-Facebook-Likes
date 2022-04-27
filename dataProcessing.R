@@ -5,7 +5,6 @@ install.packages("corrplot")
 install.packages("ggplot2")
 install.packages("reshape2")
 install.packages("reshape2")
-install.packages("syuzhet", repos = "http://cran.us.r-project.org")
 
 #matrix library required for construction of sparse matrix
 require(Matrix)
@@ -84,31 +83,20 @@ correlation<-round(cor(rotUmatrix, usersTable[,-1], use="p"),2)
 
 # Using ggplot2 to redesigning it to make it uncomplicated
 Melt<-melt(correlation)
-colnames(Melt)<-c("SVDM", "Attribute", "r")
+colnames(Melt)<-c("SVD", "Trait", "r")
 
 # Generating the heatmap for SVD dimensions and understanding personality traits 
-qplot(x=SVDM, y=Attribute, data=Melt, fill=r, geom="tile") +
-  scale_fill_gradient2(limits=range(x), breaks=c(min(x), 0, max(x)))+
+qplot(p=SVD, q=Trait, data=q, fill=r, geom="tile") +
+  scale_fill_gradient2(limits=range(p), breaks=c(min(p), 0, max(p)))+
   theme(axis.text=element_text(size=12), 
         axis.title=element_text(size=14,face="bold"),
         panel.background = element_rect(fill='white', colour='white'))+
-  labs(x=expression('SVD'[rot]), y=NULL)
+  labs(p=expression('SVD'[rot]), q=NULL)
 
 # Performing k-fold cross validations to divide users in 10 groups
 splits <- sample(1:10, size = nrow(usersTable), replace = T)
 
-#Creating a subset of users from group 1 and allocating them in trail set
-trial <- splits == 1
-library(irlba)
 
-# Extracting SVD dimensions from the trial subset
-svdM <- irlba(ufp[!trial, ], nv = 50)
-
-# Rotating Like SVD scores for trial subset
-rotVmatrix <- unclass(varimax(svdM$v)$loadings)
-
-# Rotating user SVD scores for the total set
-rotUmatrix <- as.data.frame(as.matrix(ufp %*% rotVmatrix))
 
 #################################################### Start Prediction ####################################################
 # Start predictions
@@ -173,6 +161,7 @@ ggplot(data=data, aes(x=k, y=r, group=1)) +
 
 
 ############################################################### Calculate Leadership Abilities ####################################
+install.packages("lsa")
 #Manually assign a fold
 test <- folds == 1
 library(irlba)
@@ -200,19 +189,19 @@ pred_ext <- predict(fit_ext, u_rot[test, ])
 pred_agr <- predict(fit_agr, u_rot[test, ])
 pred_neu <- predict(fit_neu, u_rot[test, ])
 
-
 matched_users <- users[match(rownames(as.matrix(pred_o)),users$userid), ]
 matched_users
 
 #Combine the predicted values
 data_new <- cbind(pred_ope, pred_con, pred_ext, pred_agr, pred_neu) 
+
+data_new
 #Define leadership traits
-leader <- c(0.40, -0.104, 0.07, -0.019, 0.035)
+leader <- c(0.90, 0.90, 0.6, 0.5, -0.5)
 
 res = list()
 
 #Iterate over users to predict the leadership traits
-install.packages("lsa")
 library(lsa)
 
 for (row in 1:nrow(data_new)) {
@@ -230,12 +219,20 @@ for (row in 1:nrow(data_new)) {
 res
 
 ############################################### Calculating the emotions #################################################
+install.packages("syuzhet", repos = "http://cran.us.r-project.org")
 library(syuzhet)
 library(data.table)
+library(plyr)
+
+# Load files
+likesTable<-read.csv("likes.csv")
+ulTable<-read.csv("users-likes.csv")
 
 like_sentiments = data.frame(matrix(ncol=11,nrow=0, dimnames=list(NULL, c("likeid", "anger", "anticipation", "disgust", "fear", "joy", "sadness", "surprise", "trust", "negative", "positive"))))
 
-for (row in 1:nrow(likesTable)){
+# for (row in 1:nrow(likesTable)){
+for (row in 99000:100000){
+  print(row)
   name <- likesTable[row, "name"]
   words <- unique(strsplit(name, split = " "))
   char_v <- unlist(words)
@@ -248,18 +245,24 @@ for (row in 1:nrow(likesTable)){
   like_sentiments <- rbind(like_sentiments, temp)
 }
 
-# print(like_sentiments)
+like_sentiments
 
-
+trimmed_ul_table <- ulTable[ulTable$likeid %in% like_sentiments$likeid,]
 user_sentiments = data.frame(matrix(ncol=11,nrow=0, dimnames=list(NULL, c("userid", "anger", "anticipation", "disgust", "fear", "joy", "sadness", "surprise", "trust", "negative", "positive"))))
-trimmed_ul_table <- ulTable[ulTable$userid %in% usersTable$userid,]
+
+head(trimmed_ul_table)
+# l = likesTable[likesTable$likeid == "220f40e9d4e1bd4ec84d90fe7c13319c",]
+# 
+# l
 
 for (row in 1:nrow(trimmed_ul_table)){
-  
+  # for (row in 1:100000){
+  print(row)
   likeid = trimmed_ul_table[row, "likeid"]
   userid = trimmed_ul_table[row, "userid"]
   
   like_sentiment = like_sentiments[like_sentiments$likeid == likeid,]
+  like_sentiment
   if (dim(like_sentiment)[1] != 0){
     user_sentiment = user_sentiments[user_sentiments$userid == userid,]
     
@@ -277,14 +280,15 @@ for (row in 1:nrow(trimmed_ul_table)){
     }
   }
 }
-# print(user_sentiments)
-
 
 user_emotions = data.frame(matrix(ncol=2,nrow=0, dimnames=list(NULL, c("userid", "sentiments"))))
 for (row in 1:nrow(user_sentiments)){
+  # for (row in 99000:100000){
   user_sentiment = user_sentiments[row,]
   max <- do.call(`pmax`, user_sentiment[,-1])
   sentiments <- (apply(user_sentiment, 1, function(x) colnames(user_sentiment)[which(x == max)]))
   user_emotions[nrow(user_emotions) + 1,] = c(user_sentiments[row, "userid"], paste(unlist(sentiments), collapse=' '))
 }
+
 print(user_emotions)
+
