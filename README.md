@@ -5,5 +5,5 @@ Personality prediction
 2. Clone the repository in the local machine
 3. Download the dataset to the project repository using the link [dataset](https://drive.google.com/drive/folders/15tmikAZyEqbiL1CeemphPfdxMHpsWXzH?usp=sharing)
 4. Navigate to the project repository using terminal
-5. Run the personalityprediction.R using the command `Rscript personalityprediction.R`
+5. Run the PersonalityPrediction.R using the command `Rscript PersonalityPrediction.R`
 6. Verify the console output and plots againts Evaluations file
