@@ -1,5 +1,4 @@
-# SWM-Group29
-Personality prediction
+# User personality and leadership ability prediction using Facebook Likes data
 
 1. Install R in the system [install-guide](https://www.datacamp.com/community/tutorials/installing-R-windows-mac-ubuntu)
 2. Clone the repository in the local machine
